@@ -1,6 +1,5 @@
 import streamlit as st
 from datetime import date
-from db_helpers import validate_financial_year_label
 
 from db_helpers import (
     get_active_financial_year,
@@ -40,7 +39,7 @@ st.subheader("➕ Add Financial Year")
 with st.form("add_fy"):
     label = st.text_input(
         "Financial Year",
-        placeholder="e.g. 2026-27"
+        placeholder="e.g. 2049-50"
     )
 
     submitted = st.form_submit_button("Add Financial Year")
