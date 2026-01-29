@@ -171,26 +171,6 @@ def delete_financial_year(year_id):
         cur.execute("DELETE FROM financial_years WHERE id = ?", (year_id,))
         conn.commit()
 
-import re
-
-def validate_financial_year_label(label: str):
-    """
-    Valid format: YYYY-YY (e.g. 2024-25)
-    """
-    label = label.strip()
-
-    pattern = r"^\d{4}-\d{2}$"
-    if not re.match(pattern, label):
-        return False, "Format must be YYYY-YY (e.g. 2024-25)"
-
-    start_year = int(label[:4])
-    end_year = int(label[-2:])
-
-    if (start_year + 1) % 100 != end_year:
-        return False, "Ending year must be start year + 1"
-
-    return True, ""
-
         
 # -------------------------------
 # Groups Helpers
@@ -212,22 +192,78 @@ def get_all_groups():
         cur.execute("SELECT id, group_name FROM groups ORDER BY group_name")
         return cur.fetchall()
 
+def update_group(group_id, new_name):
+    new_name = new_name.strip()
+
+    if not new_name:
+        raise ValueError("Group name cannot be empty")
+
+    with get_connection() as conn:
+        cur = conn.cursor()
+
+        # Duplicate check
+        cur.execute("""
+            SELECT id FROM groups
+            WHERE group_name = ? AND id != ?
+        """, (new_name, group_id))
+
+        if cur.fetchone():
+            raise ValueError("Group already exists")
+
+        cur.execute("""
+            UPDATE groups
+            SET group_name = ?
+            WHERE id = ?
+        """, (new_name, group_id))
+
+        conn.commit()
+
+def can_delete_group(group_id):
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*) FROM accounts WHERE group_id = ?",
+            (group_id,)
+        )
+        return cur.fetchone()[0] == 0
+
+def delete_group(group_id):
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+        conn.commit()
+
 
 # -------------------------------
 # ACCOUNTS HELPERS
 # -------------------------------
 
+import sqlite3
+
+def get_all_groups():
+    with get_connection() as conn:
+        # This ensures row['column'] works, but we'll go one step further
+        conn.row_factory = sqlite3.Row 
+        cur = conn.cursor()
+        cur.execute("SELECT id, group_name FROM groups ORDER BY group_name")
+        rows = cur.fetchall()
+        # Convert to true dictionaries so .get() works in Streamlit
+        return [dict(row) for row in rows]
+
 def get_all_accounts():
     with get_connection() as conn:
+        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute("""
-            SELECT a.id, a.name, a.phone, a.address, a.is_active, g.group_name
+            SELECT 
+                a.id, a.name, a.phone, a.address, 
+                a.is_active, a.group_id, g.group_name
             FROM accounts a
             JOIN groups g ON a.group_id = g.id
             ORDER BY a.name
         """)
-        return cur.fetchall()
-
+        rows = cur.fetchall()
+        return [dict(row) for row in rows]
 
 def add_account(name, group_id, phone="", address=""):
     with get_connection() as conn:
@@ -237,6 +273,60 @@ def add_account(name, group_id, phone="", address=""):
             VALUES (?, ?, ?, ?)
         """, (name.strip(), group_id, phone.strip(), address.strip()))
         conn.commit()
+
+
+def update_account(account_id, name, phone="", address="", group_id=None):
+    name = name.strip()
+    if not name:
+        raise ValueError("Account name cannot be empty")
+
+    with get_connection() as conn:
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id FROM accounts
+            WHERE name = ? AND id != ?
+        """, (name, account_id))
+
+        if cur.fetchone():
+            raise ValueError("Account name already exists")
+
+        cur.execute("""
+            UPDATE accounts
+            SET name = ?, phone = ?, address = ?, group_id = ?
+            WHERE id = ?
+        """, (name, phone, address, group_id, account_id))
+
+        conn.commit()
+
+def deactivate_account(account_id):
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE accounts
+            SET is_active = 0
+            WHERE id = ?
+        """, (account_id,))
+        conn.commit()
+
+def get_groups_for_dropdown():
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT id, group_name FROM groups ORDER BY group_name")
+        return cur.fetchall()
+
+def toggle_account_status(account_id, is_active):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE accounts
+        SET is_active = ?
+        WHERE id = ?
+    """, (is_active, account_id))
+
+    conn.commit()
+    conn.close()
         
         
 # -------------------------------
