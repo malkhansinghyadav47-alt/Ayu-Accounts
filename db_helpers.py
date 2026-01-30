@@ -185,7 +185,6 @@ def add_group(group_name):
         )
         conn.commit()
 
-
 def get_all_groups():
     with get_connection() as conn:
         cur = conn.cursor()
@@ -341,16 +340,19 @@ def get_all_accounts_simple():
 
 
 def add_opening_balance(account_id, financial_year_id, amount):
+    if has_transactions(account_id, financial_year_id):
+        raise ValueError("Opening balance locked (transactions exist)")
+
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute("""
-            INSERT OR REPLACE INTO opening_balances 
+            INSERT OR REPLACE INTO opening_balances
             (account_id, financial_year_id, amount)
             VALUES (?, ?, ?)
         """, (account_id, financial_year_id, amount))
         conn.commit()
 
-
+# gete multiple opening balances
 def get_opening_balances(financial_year_id):
     with get_connection() as conn:
         cur = conn.cursor()
@@ -363,12 +365,44 @@ def get_opening_balances(financial_year_id):
         """, (financial_year_id,))
         return cur.fetchall()
 
+def has_transactions(account_id, financial_year_id):
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM transactions
+            WHERE financial_year_id = ?
+              AND (from_acc_id = ? OR to_acc_id = ?)
+        """, (financial_year_id, account_id, account_id))
+        return cur.fetchone()[0] > 0
+
+#get single account opening balance
+def get_opening_balance(account_id, financial_year_id):
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT amount
+            FROM opening_balances
+            WHERE account_id = ?
+              AND financial_year_id = ?
+        """, (account_id, financial_year_id))
+        row = cur.fetchone()
+        return row["amount"] if row else 0
+
 
 # ---------------------------------
 # TRANSACTIONS HELPERS
 # ---------------------------------
 
-def add_transaction(txn_date, from_acc_id, to_acc_id, amount, note, financial_year_id, created_by):
+def add_transaction(
+    txn_date,
+    from_acc_id,
+    to_acc_id,
+    amount,
+    note,
+    financial_year_id,
+    created_by=1   # 👈 default
+):
     conn = get_connection()
     cur = conn.cursor()
 
@@ -389,6 +423,7 @@ def add_transaction(txn_date, from_acc_id, to_acc_id, amount, note, financial_ye
 
     conn.commit()
     conn.close()
+
 
 def get_transactions_by_year(financial_year_id):
     conn = get_connection()
@@ -413,6 +448,38 @@ def get_transactions_by_year(financial_year_id):
     conn.close()
     return rows
 
+def get_transaction_summary(financial_year_id):
+    """Calculates total amount and count of entries for the summary bar."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT SUM(amount), COUNT(*) 
+            FROM transactions 
+            WHERE financial_year_id = ?
+        """, (financial_year_id,))
+        row = cur.fetchone()
+        return (row[0] or 0.0, row[1] or 0)
+
+def delete_transaction(txn_id):
+    """Removes a transaction from the database."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
+        conn.commit()
+
+# --- Update in db_helpers.py ---
+
+def update_transaction(txn_id, amount, note, from_acc_id, to_acc_id):
+    """Updates the amount, note, and accounts of an existing transaction."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE transactions 
+            SET amount = ?, note = ?, from_acc_id = ?, to_acc_id = ?
+            WHERE id = ?
+        """, (amount, note, from_acc_id, to_acc_id, txn_id))
+        conn.commit()
+              
 # -------------------------------
 # Date Helpers
 # ------------------------------
