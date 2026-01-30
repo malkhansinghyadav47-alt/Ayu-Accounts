@@ -23,6 +23,41 @@ def init_db():
                 is_active INTEGER DEFAULT 0
             )
         """)
+        
+        # 3. Users Roles
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS roles (
+                id INTEGER PRIMARY KEY,
+                role_name TEXT UNIQUE NOT NULL,
+                description TEXT
+            )
+        """)
+        
+        # Seed Roles
+        roles = [
+            (1, 'SUPERADMIN', 'Full system access'),
+            (2, 'ADMIN', 'Manage accounts and entries'),
+            (3, 'USER', 'View-only or limited entry')
+        ]
+
+        cursor.executemany("""
+            INSERT OR IGNORE INTO roles (id, role_name, description)
+            VALUES (?, ?, ?)
+        """, roles)
+
+        # 3. Users
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                full_name TEXT,
+                role_id INTEGER NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+                FOREIGN KEY (role_id) REFERENCES roles(id)
+            )
+        """)
 
         # 3. Accounts Master
         cursor.execute("""
@@ -62,13 +97,16 @@ def init_db():
                 amount REAL NOT NULL CHECK(amount > 0),
                 note TEXT,
                 financial_year_id INTEGER NOT NULL,
+                created_by INTEGER NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
                 FOREIGN KEY (from_acc_id) REFERENCES accounts(id),
                 FOREIGN KEY (to_acc_id) REFERENCES accounts(id),
-                FOREIGN KEY (financial_year_id) REFERENCES financial_years(id)
+                FOREIGN KEY (financial_year_id) REFERENCES financial_years(id),
+                FOREIGN KEY (created_by) REFERENCES users(id)
             )
         """)
-
+        
         # 6. Performance Indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_txn_date ON transactions(txn_date)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_txn_fy ON transactions(financial_year_id)")
@@ -83,11 +121,17 @@ def init_db():
         years = [2023, 2024, 2025, 2026]
         for y in years:
             label = f"{y}-{str(y+1)[-2:]}"
-            active_status = 1 if label == '2025-26' else 0
+            active_status = 1 if label == '2026-27' else 0
             cursor.execute("""
                 INSERT OR IGNORE INTO financial_years (label, start_date, end_date, is_active)
                 VALUES (?, ?, ?, ?)
             """, (label, f"{y}-04-01", f"{y+1}-03-31", active_status))
+
+        # 10. Seed Default User (ADMIN)
+        cursor.execute("""
+            INSERT OR IGNORE INTO users (id, username, full_name, role_id)
+            VALUES (1, 'admin', 'System Administrator', 1)
+        """)
 
         # 9. Seed Data: Default Accounts
         default_accounts = [
