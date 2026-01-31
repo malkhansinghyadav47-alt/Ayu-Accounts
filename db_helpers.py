@@ -327,7 +327,28 @@ def toggle_account_status(account_id, is_active):
     conn.commit()
     conn.close()
         
+def can_delete_account(account_id):
+    """Checks if the account is linked to any transactions or opening balances."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        # Check Transactions
+        cur.execute("SELECT COUNT(*) FROM transactions WHERE from_acc_id = ? OR to_acc_id = ?", (account_id, account_id))
+        if cur.fetchone()[0] > 0: return False
         
+        # Check Opening Balances (assuming you have an opening_balances table)
+        cur.execute("SELECT COUNT(*) FROM opening_balances WHERE account_id = ?", (account_id,))
+        if cur.fetchone()[0] > 0: return False
+        
+    return True
+
+def delete_account(account_id):
+    """Permanently removes an account."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM accounts WHERE id = ?", (account_id,))
+        conn.commit()
+
+       
 # -------------------------------
 # OPENING BALANCE HELPERS
 # -------------------------------
