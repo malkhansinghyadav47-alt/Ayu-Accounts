@@ -1,5 +1,5 @@
-import streamlit as st
 import os
+import streamlit as st
 from db_helpers import get_connection
 from db_helpers import get_active_financial_year
 
@@ -19,10 +19,28 @@ with st.sidebar:
     
     st.markdown("### 📂 Modules")
 
+    # Define the list once
+    menu_options = [
+        "🏠 Dashboard", 
+        "📅 Financial Year", 
+        "🏷 Account Groups", 
+        "👤 Accounts", 
+        "💰 Opening Balance", 
+        "💳 Transactions"
+    ]
+
+    # Initialize the default value in session state BEFORE the widget
+    if "module_selection" not in st.session_state:
+        st.session_state.module_selection = "💳 Transactions"
+
+    # Use 'key' to link the radio directly to session_state
+    # This removes the need for 'index=' logic and fixes the double-click bug
     module = st.radio(
         "Select Module",
-        ["🏠 Dashboard", "📅 Financial Year", "🏷 Groups", "👤 Accounts", "💰 Opening Balance", "💳 Transactions"]
+        menu_options,
+        key="module_selection" 
     )
+
 # ---------------- MAIN PAGE ----------------
 
 def main_cloud():
@@ -44,7 +62,7 @@ def main_cloud():
         else:
             st.error("❌ File not found: 01_financial_year.py")
 
-    elif module == "🏷 Groups":       
+    elif module == "🏷 Account Groups":       
         file_path = "working_pages/02_groups.py"
 
         if os.path.exists(file_path):
