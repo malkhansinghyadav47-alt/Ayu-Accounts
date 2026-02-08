@@ -86,27 +86,45 @@ def init_db():
                 UNIQUE (account_id, financial_year_id)
             )
         """)
+        # 5. Voucher Types
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS voucher_types (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            is_active INTEGER DEFAULT 1
+        )
+        """)
 
         # 5. Transactions
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+
                 txn_date DATE NOT NULL,
+
                 from_acc_id INTEGER NOT NULL,
                 to_acc_id INTEGER NOT NULL,
+
                 amount REAL NOT NULL CHECK(amount > 0),
                 note TEXT,
+
+                --voucher_no TEXT NOT NULL,
+                --voucher_type_id INTEGER NOT NULL,
+
                 financial_year_id INTEGER NOT NULL,
+
                 created_by INTEGER NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
                 FOREIGN KEY (from_acc_id) REFERENCES accounts(id),
                 FOREIGN KEY (to_acc_id) REFERENCES accounts(id),
+                --FOREIGN KEY (voucher_type_id) REFERENCES voucher_types(id),
                 FOREIGN KEY (financial_year_id) REFERENCES financial_years(id),
                 FOREIGN KEY (created_by) REFERENCES users(id)
+            
             )
         """)
-        
+
         # 6. Performance Indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_txn_date ON transactions(txn_date)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_txn_fy ON transactions(financial_year_id)")
@@ -156,6 +174,6 @@ def init_db():
 
         conn.commit()
         print("✅ Professional Accounting Database Initialized Successfully.")
-
+               
 if __name__ == "__main__":
     init_db()
