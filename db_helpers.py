@@ -164,13 +164,11 @@ def can_delete_financial_year(year_id):
 
         return True
 
-
 def delete_financial_year(year_id):
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute("DELETE FROM financial_years WHERE id = ?", (year_id,))
         conn.commit()
-
         
 # -------------------------------
 # Groups Helpers
@@ -273,15 +271,17 @@ def add_account(name, group_id, phone="", address=""):
         """, (name.strip(), group_id, phone.strip(), address.strip()))
         conn.commit()
 
-
-def update_account(account_id, name, phone="", address="", group_id=None):
+def update_account(account_id, name, group_id, phone="", address=""):
     name = name.strip()
     if not name:
         raise ValueError("Account name cannot be empty")
+    if group_id is None:
+        raise ValueError("Group ID is required")
 
     with get_connection() as conn:
         cur = conn.cursor()
 
+        # Check for duplicate names
         cur.execute("""
             SELECT id FROM accounts
             WHERE name = ? AND id != ?
@@ -290,11 +290,12 @@ def update_account(account_id, name, phone="", address="", group_id=None):
         if cur.fetchone():
             raise ValueError("Account name already exists")
 
+        # Match the order of parameters to the SET clause
         cur.execute("""
             UPDATE accounts
-            SET name = ?, phone = ?, address = ?, group_id = ?
+            SET name = ?, group_id = ?, phone = ?, address = ?
             WHERE id = ?
-        """, (name, phone, address, group_id, account_id))
+        """, (name, group_id, phone, address, account_id))
 
         conn.commit()
 
@@ -445,7 +446,6 @@ def add_transaction(
     conn.commit()
     conn.close()
 
-
 def get_transactions_by_year(financial_year_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -470,16 +470,39 @@ def get_transactions_by_year(financial_year_id):
     return rows
 
 def get_transaction_summary(financial_year_id):
-    """Calculates total amount and count of entries for the summary bar."""
+    """Returns total Debit, Credit and Entry Count for a financial year"""
     with get_connection() as conn:
         cur = conn.cursor()
+
+        # Total Debit
         cur.execute("""
-            SELECT SUM(amount), COUNT(*) 
-            FROM transactions 
+            SELECT SUM(amount)
+            FROM transactions
             WHERE financial_year_id = ?
         """, (financial_year_id,))
-        row = cur.fetchone()
-        return (row[0] or 0.0, row[1] or 0)
+        total_debit = cur.fetchone()[0] or 0.0
+
+        # Total Credit (same total in double-entry, but kept explicit)
+        cur.execute("""
+            SELECT SUM(amount)
+            FROM transactions
+            WHERE financial_year_id = ?
+        """, (financial_year_id,))
+        total_credit = cur.fetchone()[0] or 0.0
+
+        # Entry count
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM transactions
+            WHERE financial_year_id = ?
+        """, (financial_year_id,))
+        entry_count = cur.fetchone()[0] or 0
+
+        return {
+            "debit": total_debit,
+            "credit": total_credit,
+            "entries": entry_count
+        }
 
 def delete_transaction(txn_id):
     """Removes a transaction from the database."""
@@ -487,8 +510,6 @@ def delete_transaction(txn_id):
         cur = conn.cursor()
         cur.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
         conn.commit()
-
-# --- Update in db_helpers.py ---
 
 def update_transaction(txn_id, amount, note, from_acc_id, to_acc_id):
     """Updates the amount, note, and accounts of an existing transaction."""
@@ -500,7 +521,33 @@ def update_transaction(txn_id, amount, note, from_acc_id, to_acc_id):
             WHERE id = ?
         """, (amount, note, from_acc_id, to_acc_id, txn_id))
         conn.commit()
-              
+  
+def get_account_dr_cr(account_id, financial_year_id):
+    """Returns Debit and Credit total for a single account"""
+    with get_connection() as conn:
+        cur = conn.cursor()
+
+        # Debit
+        cur.execute("""
+            SELECT SUM(amount)
+            FROM transactions
+            WHERE to_acc_id = ?
+              AND financial_year_id = ?
+        """, (account_id, financial_year_id))
+        debit = cur.fetchone()[0] or 0.0
+
+        # Credit
+        cur.execute("""
+            SELECT SUM(amount)
+            FROM transactions
+            WHERE from_acc_id = ?
+              AND financial_year_id = ?
+        """, (account_id, financial_year_id))
+        credit = cur.fetchone()[0] or 0.0
+
+        return debit, credit
+  
+            
 # -------------------------------
 # Date Helpers
 # ------------------------------
@@ -508,4 +555,47 @@ def update_transaction(txn_id, amount, note, from_acc_id, to_acc_id):
 def indian_date(date_str):
     # DB format YYYY-MM-DD  →  DD-MM-YYYY
     return datetime.strptime(date_str, "%Y-%m-%d").strftime("%d-%m-%Y")
+
+
+# -------------------------------
+# Reports Helpers
+# ------------------------------
+
+def get_ledger(account_id, financial_year_id):
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT
+                txn_date,
+                note,
+                CASE 
+                    WHEN to_acc_id = ? THEN amount
+                    ELSE 0
+                END AS debit,
+                CASE 
+                    WHEN from_acc_id = ? THEN amount
+                    ELSE 0
+                END AS credit
+            FROM transactions
+            WHERE financial_year_id = ?
+              AND (from_acc_id = ? OR to_acc_id = ?)
+            ORDER BY txn_date, id
+        """, (account_id, account_id, financial_year_id, account_id, account_id))
+        return cur.fetchall()
+    
+def generate_voucher_no(voucher_type_id, financial_year_id):
+    with get_connection() as conn:
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT COALESCE(MAX(voucher_seq), 0)
+            FROM transactions
+            WHERE financial_year_id = ?
+              AND voucher_type_id = ?
+        """, (financial_year_id, voucher_type_id))
+
+        next_seq = cur.fetchone()[0] + 1
+
+        voucher_no = f"{voucher_type_id}/{financial_year_id}/{next_seq:05d}"
+        return voucher_no, next_seq
 
