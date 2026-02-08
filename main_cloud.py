@@ -100,5 +100,4 @@ def main_cloud():
             st.error("❌ File not found: 04_opening_balance.py")       
 
 if __name__ == "__main__":
-
     main_cloud()
