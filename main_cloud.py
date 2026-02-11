@@ -16,30 +16,72 @@ with st.sidebar:
         st.warning("⚠️ No Active Year")
 
     st.markdown("---")
-    
-    st.markdown("### 📂 Modules")
 
-    # Define the list once
-    menu_options = [
-        "🏠 Dashboard", 
-        "📅 Financial Year", 
-        "🏷 Account Groups", 
-        "👤 Accounts", 
-        "💰 Opening Balance", 
-        "💳 Transactions"
-    ]
-
-    # Initialize the default value in session state BEFORE the widget
+    # ---------------- DEFAULT SESSION INIT ----------------
     if "module_selection" not in st.session_state:
         st.session_state.module_selection = "💳 Transactions"
 
-    # Use 'key' to link the radio directly to session_state
-    # This removes the need for 'index=' logic and fixes the double-click bug
-    module = st.radio(
-        "Select Module",
-        menu_options,
-        key="module_selection" 
+    if "report_selection" not in st.session_state:
+        st.session_state.report_selection = "📑 Ledger Report"
+
+    if "sidebar_section" not in st.session_state:
+        st.session_state.sidebar_section = "📂 Input Modules"
+
+    # ---------------- SIDEBAR CATEGORY SELECTOR ----------------
+    st.session_state.sidebar_section = st.radio(
+        "📌 Select Section",
+        ["📂 Input Modules", "📂 Report Modules"],
+        key="sidebar_section_radio"
     )
+
+    st.markdown("---")
+
+    # ---------------- INPUT MODULES ----------------
+    input_menu_options = [
+        "🏠 Dashboard",
+        "📅 Financial Year",
+        "🏷 Account Groups",
+        "👤 Accounts",
+        "💰 Opening Balance",
+        "💳 Transactions"
+    ]
+
+    # ---------------- REPORT MODULES ----------------
+    report_menu_options = [
+        "📑 Ledger Report",
+        "📊 Trial Balance"
+    ]
+
+    module = None
+
+    # ---------------- EXPANDER BASED MENU ----------------
+    if st.session_state.sidebar_section == "📂 Input Modules":
+        with st.expander("📂 Input Modules", expanded=True):
+            module = st.radio(
+                "Select Module",
+                input_menu_options,
+                key="module_selection"
+            )
+
+        with st.expander("📂 Report Modules", expanded=False):
+            st.info("Select from Section menu above 👆")
+
+    else:
+        with st.expander("📂 Input Modules", expanded=False):
+            st.info("Select from Section menu above 👆")
+
+        with st.expander("📂 Report Modules", expanded=True):
+            module = st.radio(
+                "Select Report",
+                report_menu_options,
+                key="report_selection"
+            )
+
+    st.markdown("---")
+    st.caption("⚡ Developed by:")
+    st.caption("Ayuquant Software Pvt. Ltd. Ghaziabad, India.")
+    st.caption("Jan Gan Man Public School, Muradnagar, Ghaziabad.")
+
 
 # ---------------- MAIN PAGE ----------------
 
@@ -98,6 +140,25 @@ def main_cloud():
                 exec(f.read())
         else:
             st.error("❌ File not found: 04_opening_balance.py")       
+
+    elif module == "📑 Ledger Report":
+        file_path = "reports/ledger_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/ledger_report.py")
+
+    elif module == "📊 Trial Balance":
+        file_path = "reports/trial_balance_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/trial_balance_report.py")
+
 
 if __name__ == "__main__":
     main_cloud()
