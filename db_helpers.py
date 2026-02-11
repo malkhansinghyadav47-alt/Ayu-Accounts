@@ -398,7 +398,7 @@ def has_transactions(account_id, financial_year_id):
         """, (financial_year_id, account_id, account_id))
         return cur.fetchone()[0] > 0
 
-#get single account opening balance
+# get single account opening balance
 def get_opening_balance(account_id, financial_year_id):
     with get_connection() as conn:
         cur = conn.cursor()
@@ -408,9 +408,9 @@ def get_opening_balance(account_id, financial_year_id):
             WHERE account_id = ?
               AND financial_year_id = ?
         """, (account_id, financial_year_id))
-        row = cur.fetchone()
-        return row["amount"] if row else 0
 
+        row = cur.fetchone()
+        return float(row["amount"]) if row and row["amount"] is not None else 0.0
 
 # ---------------------------------
 # TRANSACTIONS HELPERS
@@ -582,6 +582,108 @@ def get_ledger(account_id, financial_year_id):
             ORDER BY txn_date, id
         """, (account_id, account_id, financial_year_id, account_id, account_id))
         return cur.fetchall()
+  
+def get_account_ledger(account_id, financial_year_id, start_date=None, end_date=None):
+    """
+    Returns ledger rows for a given account_id including Dr/Cr effect.
+    Output columns:
+        txn_date, particular, debit, credit, note
+    """
+
+    with get_connection() as conn:
+        cur = conn.cursor()
+
+        query = """
+            SELECT 
+                t.txn_date AS txn_date,
+                a2.name AS particular,
+                t.amount AS debit,
+                0 AS credit,
+                t.note AS note
+            FROM transactions t
+            JOIN accounts a2 ON t.from_acc_id = a2.id
+            WHERE t.to_acc_id = ?
+              AND t.financial_year_id = ?
+
+            UNION ALL
+
+            SELECT 
+                t.txn_date AS txn_date,
+                a1.name AS particular,
+                0 AS debit,
+                t.amount AS credit,
+                t.note AS note
+            FROM transactions t
+            JOIN accounts a1 ON t.to_acc_id = a1.id
+            WHERE t.from_acc_id = ?
+              AND t.financial_year_id = ?
+        """
+
+        params = [account_id, financial_year_id, account_id, financial_year_id]
+
+        # Date Filter if provided
+        if start_date and end_date:
+            query = f"""
+                SELECT * FROM ({query})
+                WHERE txn_date BETWEEN ? AND ?
+                ORDER BY txn_date ASC
+            """
+            params.extend([start_date, end_date])
+        else:
+            query = f"""
+                SELECT * FROM ({query})
+                ORDER BY txn_date ASC
+            """
+
+        cur.execute(query, params)
+        rows = cur.fetchall()
+
+        return rows
+
+def calculate_running_ledger(ledger_rows, opening_balance):
+    """
+    ledger_rows = list of tuples (txn_date, particular, debit, credit, note)
+    returns list with running balance.
+    """
+
+    running = opening_balance
+    output = []
+
+    total_dr = 0
+    total_cr = 0
+
+    for row in ledger_rows:
+        txn_date, particular, debit, credit, note = row
+
+        debit = debit or 0
+        credit = credit or 0
+
+        total_dr += debit
+        total_cr += credit
+
+        running = running + debit - credit
+
+        # Balance side
+        if running >= 0:
+            bal_side = "Dr"
+            bal_amt = running
+        else:
+            bal_side = "Cr"
+            bal_amt = abs(running)
+
+        output.append({
+            "Date": txn_date,
+            "Particular": particular,
+            "Debit": debit,
+            "Credit": credit,
+            "Note": note,
+            "Balance": f"{bal_amt:.2f} {bal_side}"
+        })
+
+    closing_balance = running
+
+    return output, total_dr, total_cr, closing_balance
+
     
 def generate_voucher_no(voucher_type_id, financial_year_id):
     with get_connection() as conn:
