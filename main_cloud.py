@@ -49,7 +49,8 @@ with st.sidebar:
     # ---------------- REPORT MODULES ----------------
     report_menu_options = [
         "📑 Ledger Report",
-        "📊 Trial Balance"
+        "📊 Trial Balance",
+        "📈 Profit & Loss"
     ]
 
     module = None
@@ -158,6 +159,15 @@ def main_cloud():
                 exec(f.read())
         else:
             st.error("❌ File not found: reports/trial_balance_report.py")
+
+    elif module == "📈 Profit & Loss":
+        file_path = "reports/profit_loss_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/profit_loss_report.py")
 
 
 if __name__ == "__main__":
