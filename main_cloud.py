@@ -50,7 +50,10 @@ with st.sidebar:
     report_menu_options = [
         "📑 Ledger Report",
         "📊 Trial Balance",
-        "📈 Profit & Loss"
+        "📈 Profit & Loss",
+        "🏦 Balance Sheet Progress Bar",
+        "🏦 Balance Sheet No Loop",
+        "💵 Cash Flow Report"
     ]
 
     module = None
@@ -168,6 +171,33 @@ def main_cloud():
                 exec(f.read())
         else:
             st.error("❌ File not found: reports/profit_loss_report.py")
+
+    elif module == "🏦 Balance Sheet Progress Bar":
+        file_path = "reports/balance_sheet_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/balance_sheet_report.py")
+
+    elif module == "🏦 Balance Sheet No Loop":
+        file_path = "reports/balance_sheet_report2.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/balance_sheet_report.py")
+
+    elif module == "💵 Cash Flow Report":
+        file_path = "reports/cash_flow_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/cash_flow_report.py")
 
 
 if __name__ == "__main__":

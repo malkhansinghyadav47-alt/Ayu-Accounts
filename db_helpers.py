@@ -1,5 +1,6 @@
 import re
 import sqlite3
+import pandas as pd
 from datetime import date
 from datetime import datetime
 
@@ -684,6 +685,109 @@ def calculate_running_ledger(ledger_rows, opening_balance):
 
     return output, total_dr, total_cr, closing_balance
 
+# -----------------------------------------
+# Helper: Get Account Closing Balance
+# -----------------------------------------
+def get_account_closing_balance(account_id, financial_year_id, start_date, end_date):
+    """
+    Closing Balance = Opening + Debit(to_acc) - Credit(from_acc)
+    Opening is already signed (+ debit, - credit)
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Opening Balance
+    cursor.execute("""
+        SELECT COALESCE(amount, 0)
+        FROM opening_balances
+        WHERE account_id = ? AND financial_year_id = ?
+    """, (account_id, financial_year_id))
+
+    opening = cursor.fetchone()
+    opening_amt = opening[0] if opening else 0.0
+
+    # Total Debit (Received)
+    cursor.execute("""
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE to_acc_id = ?
+          AND financial_year_id = ?
+          AND txn_date BETWEEN ? AND ?
+    """, (account_id, financial_year_id, start_date, end_date))
+
+    total_dr = cursor.fetchone()[0]
+
+    # Total Credit (Paid)
+    cursor.execute("""
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE from_acc_id = ?
+          AND financial_year_id = ?
+          AND txn_date BETWEEN ? AND ?
+    """, (account_id, financial_year_id, start_date, end_date))
+
+    total_cr = cursor.fetchone()[0]
+
+    conn.close()
+
+    closing = opening_amt + total_dr - total_cr
+    return closing
+
+def get_all_balances_optimized(financial_year_id, start_date, end_date):
+    """
+    Optimized: Fetches all account balances in one query using CTEs.
+    Matches your logic: Opening + Debits (to_acc_id) - Credits (from_acc_id)
+    """
+    conn = get_connection()
+    
+    query = """
+    WITH Opening AS (
+        SELECT account_id, COALESCE(amount, 0) as op_amt 
+        FROM opening_balances 
+        WHERE financial_year_id = ?
+    ),
+    Debits AS (
+        SELECT to_acc_id as account_id, SUM(amount) as dr_amt 
+        FROM transactions 
+        WHERE financial_year_id = ? AND txn_date BETWEEN ? AND ?
+        GROUP BY to_acc_id
+    ),
+    Credits AS (
+        SELECT from_acc_id as account_id, SUM(amount) as cr_amt 
+        FROM transactions 
+        WHERE financial_year_id = ? AND txn_date BETWEEN ? AND ?
+        GROUP BY from_acc_id
+    )
+    SELECT 
+        a.id as acc_id, 
+        a.name as acc_name, 
+        a.group_id,
+        g.group_name,
+        (COALESCE(o.op_amt, 0) + COALESCE(d.dr_amt, 0) - COALESCE(c.cr_amt, 0)) as balance
+    FROM accounts a
+    JOIN groups g ON a.group_id = g.id
+    LEFT JOIN Opening o ON a.id = o.account_id
+    LEFT JOIN Debits d ON a.id = d.account_id
+    LEFT JOIN Credits c ON a.id = c.account_id
+    """
+    
+    params = (
+        financial_year_id, 
+        financial_year_id, start_date, end_date, 
+        financial_year_id, start_date, end_date
+    )
+    
+    df = pd.read_sql(query, conn, params=params)
+    conn.close()
+    return df
+
+# -----------------------------------------
+# Helper: Format Amount
+# -----------------------------------------
+def format_amt(val):
+    return f"₹ {val:,.2f}"
+
     
 def generate_voucher_no(voucher_type_id, financial_year_id):
     with get_connection() as conn:
@@ -700,4 +804,116 @@ def generate_voucher_no(voucher_type_id, financial_year_id):
 
         voucher_no = f"{voucher_type_id}/{financial_year_id}/{next_seq:05d}"
         return voucher_no, next_seq
+
+
+# -----------------------------------------
+# CASH FLOW REPORT FUNCTIONS
+# -----------------------------------------
+
+def get_cash_bank_accounts(financial_year_id):
+    """
+    Returns list of accounts which belong to CASH/BANK group ids.
+    NOTE: You must define your CASH/BANK group ids properly.
+    """
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # 👇 यहां group_id numbers वही डालो जो आपकी DB में CASH/BANK group के हैं
+    CASH_BANK_GROUP_IDS = (1, 2)   # <-- Change this as per your group ids
+
+    cursor.execute(f"""
+        SELECT id, name
+        FROM accounts
+        WHERE group_id IN ({",".join(["?"]*len(CASH_BANK_GROUP_IDS))})
+        ORDER BY name
+    """, CASH_BANK_GROUP_IDS)
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows
+
+
+def get_opening_balance(account_id, financial_year_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT COALESCE(amount, 0)
+        FROM opening_balances
+        WHERE account_id = ?
+          AND financial_year_id = ?
+    """, (account_id, financial_year_id))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    return row[0] if row else 0
+
+
+def get_cash_flow_summary(account_id, financial_year_id, start_date, end_date):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Cash In
+    cursor.execute("""
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE financial_year_id = ?
+          AND txn_date BETWEEN ? AND ?
+          AND to_acc_id = ?
+    """, (financial_year_id, start_date, end_date, account_id))
+    cash_in = cursor.fetchone()[0]
+
+    # Cash Out
+    cursor.execute("""
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE financial_year_id = ?
+          AND txn_date BETWEEN ? AND ?
+          AND from_acc_id = ?
+    """, (financial_year_id, start_date, end_date, account_id))
+    cash_out = cursor.fetchone()[0]
+
+    conn.close()
+
+    return {
+        "cash_in": cash_in,
+        "cash_out": cash_out,
+        "net_cash_flow": cash_in - cash_out
+    }
+
+def get_cash_flow_transactions(account_id, financial_year_id, start_date, end_date):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT 
+            t.id,
+            t.txn_date,
+            t.note,
+            a1.name AS from_account,
+            a2.name AS to_account,
+            t.from_acc_id,
+            t.to_acc_id,
+            t.amount
+        FROM transactions t
+        LEFT JOIN accounts a1 ON a1.id = t.from_acc_id
+        LEFT JOIN accounts a2 ON a2.id = t.to_acc_id
+        WHERE t.financial_year_id = ?
+          AND t.txn_date BETWEEN ? AND ?
+          AND (t.from_acc_id = ? OR t.to_acc_id = ?)
+        ORDER BY t.txn_date ASC, t.id ASC
+    """, (financial_year_id, start_date, end_date, account_id, account_id))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows
+
+def get_cash_closing_balance(account_id, financial_year_id, start_date, end_date):
+    opening = get_opening_balance(account_id, financial_year_id)
+    summary = get_cash_flow_summary(account_id, financial_year_id, start_date, end_date)
+    return opening + summary["net_cash_flow"]
 
