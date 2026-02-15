@@ -917,3 +917,232 @@ def get_cash_closing_balance(account_id, financial_year_id, start_date, end_date
     summary = get_cash_flow_summary(account_id, financial_year_id, start_date, end_date)
     return opening + summary["net_cash_flow"]
 
+def get_day_book_transactions(financial_year_id, start_date, end_date):
+    """
+    Returns all transactions in date range for Day Book.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            t.id,
+            t.txn_date,
+            COALESCE(t.note, ''),
+            t.amount,
+            t.from_acc_id,
+            fa.name AS from_account,
+            t.to_acc_id,
+            ta.name AS to_account
+        FROM transactions t
+        LEFT JOIN accounts fa ON fa.id = t.from_acc_id
+        LEFT JOIN accounts ta ON ta.id = t.to_acc_id
+        WHERE t.financial_year_id = ?
+          AND t.txn_date BETWEEN ? AND ?
+        ORDER BY t.txn_date ASC, t.id ASC
+    """, (financial_year_id, start_date, end_date))
+
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def get_day_book_summary(financial_year_id, start_date, end_date):
+    """
+    Returns total debit/credit counts and total amount summary.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE financial_year_id = ?
+          AND txn_date BETWEEN ? AND ?
+    """, (financial_year_id, start_date, end_date))
+
+    total_amount = cursor.fetchone()[0] or 0
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM transactions
+        WHERE financial_year_id = ?
+          AND txn_date BETWEEN ? AND ?
+    """, (financial_year_id, start_date, end_date))
+
+    total_entries = cursor.fetchone()[0] or 0
+
+    conn.close()
+
+    return {
+        "total_amount": float(total_amount),
+        "total_entries": int(total_entries)
+    }
+
+def get_account_closing_balance(account_id, financial_year_id, start_date, end_date):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Opening Balance
+    cursor.execute("""
+        SELECT COALESCE(amount, 0)
+        FROM opening_balances
+        WHERE account_id = ? AND financial_year_id = ?
+    """, (account_id, financial_year_id))
+
+    opening = cursor.fetchone()
+    opening_balance = float(opening[0]) if opening else 0.0
+
+    # Transactions Impact
+    cursor.execute("""
+        SELECT 
+            COALESCE(SUM(
+                CASE 
+                    WHEN to_acc_id = ? THEN amount
+                    WHEN from_acc_id = ? THEN -amount
+                    ELSE 0
+                END
+            ), 0)
+        FROM transactions
+        WHERE financial_year_id = ?
+          AND txn_date BETWEEN ? AND ?
+    """, (account_id, account_id, financial_year_id, start_date, end_date))
+
+    txn_sum = cursor.fetchone()[0] or 0.0
+
+    conn.close()
+
+    return opening_balance + float(txn_sum)
+
+def get_outstanding_report(financial_year_id, start_date, end_date):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, name, group_id
+        FROM accounts
+        ORDER BY name
+    """)
+    accounts = cursor.fetchall()
+
+    result = []
+
+    for acc in accounts:
+        acc_id = acc[0]
+        acc_name = acc[1]
+
+        closing = get_account_closing_balance(acc_id, financial_year_id, start_date, end_date)
+
+        dr_amt = 0.0
+        cr_amt = 0.0
+
+        if closing > 0:
+            dr_amt = closing
+        elif closing < 0:
+            cr_amt = abs(closing)
+
+        result.append({
+            "Account ID": acc_id,
+            "Account Name": acc_name,
+            "Receivable (Dr)": round(dr_amt, 2),
+            "Payable (Cr)": round(cr_amt, 2),
+            "Net Balance": round(closing, 2)
+        })
+
+    conn.close()
+    return result
+
+def get_groupwise_outstanding(financial_year_id, start_date, end_date):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Fetch all groups
+    cursor.execute("""
+        SELECT id, group_name
+        FROM groups
+        ORDER BY group_name
+    """)
+    groups = cursor.fetchall()
+
+    result = []
+
+    for g in groups:
+        group_id = g[0]
+        group_name = g[1]
+
+        # Accounts under this group
+        cursor.execute("""
+            SELECT id, name
+            FROM accounts
+            WHERE group_id = ?
+        """, (group_id,))
+        accounts = cursor.fetchall()
+
+        total_receivable = 0.0
+        total_payable = 0.0
+        net_balance = 0.0
+
+        for acc in accounts:
+            acc_id = acc[0]
+
+            closing = get_account_closing_balance(acc_id, financial_year_id, start_date, end_date)
+
+            net_balance += closing
+
+            if closing > 0:
+                total_receivable += closing
+            elif closing < 0:
+                total_payable += abs(closing)
+
+        # Only show groups which have outstanding
+        if total_receivable > 0 or total_payable > 0:
+            result.append({
+                "Group ID": group_id,
+                "Group Name": group_name,
+                "Receivable (Dr)": round(total_receivable, 2),
+                "Payable (Cr)": round(total_payable, 2),
+                "Net Balance": round(net_balance, 2)
+            })
+
+    conn.close()
+    return result
+
+def get_group_outstanding_accounts(group_id, financial_year_id, start_date, end_date):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, name
+        FROM accounts
+        WHERE group_id = ?
+        ORDER BY name
+    """, (group_id,))
+
+    accounts = cursor.fetchall()
+
+    result = []
+
+    for acc in accounts:
+        acc_id = acc[0]
+        acc_name = acc[1]
+
+        closing = get_account_closing_balance(acc_id, financial_year_id, start_date, end_date)
+
+        dr_amt = 0.0
+        cr_amt = 0.0
+
+        if closing > 0:
+            dr_amt = closing
+        elif closing < 0:
+            cr_amt = abs(closing)
+
+        if dr_amt > 0 or cr_amt > 0:
+            result.append({
+                "Account ID": acc_id,
+                "Account Name": acc_name,
+                "Receivable (Dr)": round(dr_amt, 2),
+                "Payable (Cr)": round(cr_amt, 2),
+                "Net Balance": round(closing, 2)
+            })
+
+    conn.close()
+    return result

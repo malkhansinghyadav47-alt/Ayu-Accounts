@@ -53,7 +53,10 @@ with st.sidebar:
         "📈 Profit & Loss",
         "🏦 Balance Sheet Progress Bar",
         "🏦 Balance Sheet No Loop",
-        "💵 Cash Flow Report"
+        "💵 Cash Flow Report",
+        "📒 Day Book Report",
+        "📌 Outstanding Report",
+        "📌 Group-wise Outstanding"
     ]
 
     module = None
@@ -198,6 +201,33 @@ def main_cloud():
                 exec(f.read())
         else:
             st.error("❌ File not found: reports/cash_flow_report.py")
+
+    elif module == "📒 Day Book Report":
+        file_path = "reports/day_book_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/day_book_report.py")
+
+    elif module == "📌 Outstanding Report":
+        file_path = "reports/outstanding_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/day_book_report.py")
+
+    elif module == "📌 Group-wise Outstanding":
+        file_path = "reports/groupwise_outstanding_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/day_book_report.py")
 
 
 if __name__ == "__main__":
