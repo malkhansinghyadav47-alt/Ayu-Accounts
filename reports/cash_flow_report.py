@@ -176,6 +176,235 @@ else:
 
     st.pyplot(fig)
 
+# ----------------------------------------
+# Pie Chart + Top 10 Accounts Summary
+# ----------------------------------------
+st.markdown("---")
+st.markdown("## 🥧 Pie Chart + 🔟 Top 10 Accounts Summary")
+
+if df.empty:
+    st.warning("⚠️ No transactions available for Pie Chart / Top 10 analysis.")
+else:
+    # -------------------------
+    # Pie Chart (Inflow vs Outflow)
+    # -------------------------
+    st.markdown("### 🥧 Cash Inflow vs Outflow Pie Chart")
+
+    pie_data = pd.DataFrame({
+        "Type": ["Inflow", "Outflow"],
+        "Amount": [df["Inflow"].sum(), df["Outflow"].sum()]
+    })
+
+    fig_pie, ax_pie = plt.subplots(figsize=(6, 6))
+    ax_pie.pie(
+        pie_data["Amount"],
+        labels=pie_data["Type"],
+        autopct="%1.1f%%",
+        startangle=90
+    )
+    ax_pie.set_title("Cash Inflow vs Outflow")
+
+    st.pyplot(fig_pie)
+
+    # -------------------------
+    # Top 10 Accounts where money went OUT (Payments)
+    # -------------------------
+    st.markdown("### 🔻 Top 10 Accounts (Most Payments Done)")
+
+    df_out = df[df["Outflow"] > 0].groupby("To")["Outflow"].sum().reset_index()
+    df_out = df_out.sort_values("Outflow", ascending=False).head(10)
+
+    if df_out.empty:
+        st.info("No Outflow transactions found.")
+    else:
+        st.dataframe(df_out, use_container_width=True)
+
+        fig_out, ax_out = plt.subplots(figsize=(10, 5))
+        ax_out.bar(df_out["To"], df_out["Outflow"])
+        ax_out.set_title("Top 10 Payment Accounts (Outflow)")
+        ax_out.set_xlabel("Account")
+        ax_out.set_ylabel("Amount (₹)")
+        plt.xticks(rotation=45, ha="right")
+        st.pyplot(fig_out)
+
+    # -------------------------
+    # Top 10 Accounts where money came IN (Receipts)
+    # -------------------------
+    st.markdown("### 🔺 Top 10 Accounts (Most Receipts Received)")
+
+    df_in = df[df["Inflow"] > 0].groupby("From")["Inflow"].sum().reset_index()
+    df_in = df_in.sort_values("Inflow", ascending=False).head(10)
+
+    if df_in.empty:
+        st.info("No Inflow transactions found.")
+    else:
+        st.dataframe(df_in, use_container_width=True)
+
+        fig_in, ax_in = plt.subplots(figsize=(10, 5))
+        ax_in.bar(df_in["From"], df_in["Inflow"])
+        ax_in.set_title("Top 10 Receipt Accounts (Inflow)")
+        ax_in.set_xlabel("Account")
+        ax_in.set_ylabel("Amount (₹)")
+        plt.xticks(rotation=45, ha="right")
+        st.pyplot(fig_in)
+
+# ----------------------------------------
+# Professional Donut Chart (Top 5 + Others)
+# ----------------------------------------
+st.markdown("---")
+st.markdown("## 🍩 Professional Donut Chart (Top 5 + Others)")
+
+if df.empty:
+    st.warning("⚠️ No data available for Donut Chart.")
+else:
+    st.markdown("### 🔻 Outflow Donut Chart (Top 5 + Others)")
+
+    outflow_group = df[df["Outflow"] > 0].groupby("To")["Outflow"].sum().reset_index()
+    outflow_group = outflow_group.sort_values("Outflow", ascending=False)
+
+    if outflow_group.empty:
+        st.info("No Outflow data available.")
+    else:
+        top5_out = outflow_group.head(5)
+        others_out_sum = outflow_group["Outflow"].iloc[5:].sum()
+
+        donut_labels_out = top5_out["To"].tolist()
+        donut_values_out = top5_out["Outflow"].tolist()
+
+        if others_out_sum > 0:
+            donut_labels_out.append("Others")
+            donut_values_out.append(others_out_sum)
+
+        fig_donut_out, ax_donut_out = plt.subplots(figsize=(7, 7))
+
+        wedges, texts, autotexts = ax_donut_out.pie(
+            donut_values_out,
+            labels=donut_labels_out,
+            autopct=lambda p: f"{p:.1f}%",
+            startangle=90,
+            pctdistance=0.85
+        )
+
+        # Donut hole
+        centre_circle = plt.Circle((0, 0), 0.60, fc="white")
+        fig_donut_out.gca().add_artist(centre_circle)
+
+        total_out = sum(donut_values_out)
+        ax_donut_out.set_title(f"Outflow Distribution (Total ₹ {total_out:,.2f})")
+
+        st.pyplot(fig_donut_out)
+
+# ----------------------------------------
+# Professional Donut Chart (Top 5 + Others with ₹ Amount + %)
+# ----------------------------------------
+st.markdown("---")
+st.markdown("## 🍩 Professional Donut Chart (Top 5 + Others)")
+
+if df.empty:
+    st.warning("⚠️ No data available for Donut Chart.")
+else:
+
+    def make_autopct(values):
+        def my_autopct(pct):
+            total = sum(values)
+            val = pct * total / 100.0
+            return f"{pct:.1f}%\n₹{val:,.0f}"
+        return my_autopct
+
+    # ----------------------------------------
+    # Outflow Donut Chart
+    # ----------------------------------------
+    st.markdown("### 🔻 Outflow Donut Chart (Top 5 + Others)")
+
+    outflow_group = df[df["Outflow"] > 0].groupby("To")["Outflow"].sum().reset_index()
+    outflow_group = outflow_group.sort_values("Outflow", ascending=False)
+
+    if outflow_group.empty:
+        st.info("No Outflow data available.")
+    else:
+        top5_out = outflow_group.head(5)
+        others_out_sum = outflow_group["Outflow"].iloc[5:].sum()
+
+        donut_labels_out = top5_out["To"].tolist()
+        donut_values_out = top5_out["Outflow"].tolist()
+
+        if others_out_sum > 0:
+            donut_labels_out.append("Others")
+            donut_values_out.append(others_out_sum)
+
+        total_out = sum(donut_values_out)
+
+        fig_donut_out, ax_donut_out = plt.subplots(figsize=(8, 8))
+
+        wedges, texts, autotexts = ax_donut_out.pie(
+            donut_values_out,
+            labels=donut_labels_out,
+            autopct=make_autopct(donut_values_out),
+            startangle=90,
+            pctdistance=0.82,
+            labeldistance=1.05
+        )
+
+        # Donut hole
+        centre_circle = plt.Circle((0, 0), 0.60, fc="white")
+        fig_donut_out.gca().add_artist(centre_circle)
+
+        # Center total text
+        ax_donut_out.text(0, 0, f"Total\n₹ {total_out:,.0f}",
+                          ha="center", va="center",
+                          fontsize=14, fontweight="bold")
+
+        ax_donut_out.set_title("Outflow Distribution (Top 5 + Others)", fontsize=15, fontweight="bold")
+
+        st.pyplot(fig_donut_out)
+
+    # ----------------------------------------
+    # Inflow Donut Chart
+    # ----------------------------------------
+    st.markdown("### 🔺 Inflow Donut Chart (Top 5 + Others)")
+
+    inflow_group = df[df["Inflow"] > 0].groupby("From")["Inflow"].sum().reset_index()
+    inflow_group = inflow_group.sort_values("Inflow", ascending=False)
+
+    if inflow_group.empty:
+        st.info("No Inflow data available.")
+    else:
+        top5_in = inflow_group.head(5)
+        others_in_sum = inflow_group["Inflow"].iloc[5:].sum()
+
+        donut_labels_in = top5_in["From"].tolist()
+        donut_values_in = top5_in["Inflow"].tolist()
+
+        if others_in_sum > 0:
+            donut_labels_in.append("Others")
+            donut_values_in.append(others_in_sum)
+
+        total_in = sum(donut_values_in)
+
+        fig_donut_in, ax_donut_in = plt.subplots(figsize=(8, 8))
+
+        wedges, texts, autotexts = ax_donut_in.pie(
+            donut_values_in,
+            labels=donut_labels_in,
+            autopct=make_autopct(donut_values_in),
+            startangle=90,
+            pctdistance=0.82,
+            labeldistance=1.05
+        )
+
+        # Donut hole
+        centre_circle = plt.Circle((0, 0), 0.60, fc="white")
+        fig_donut_in.gca().add_artist(centre_circle)
+
+        # Center total text
+        ax_donut_in.text(0, 0, f"Total\n₹ {total_in:,.0f}",
+                         ha="center", va="center",
+                         fontsize=14, fontweight="bold")
+
+        ax_donut_in.set_title("Inflow Distribution (Top 5 + Others)", fontsize=15, fontweight="bold")
+
+        st.pyplot(fig_donut_in)
+
 
 # ----------------------------------------
 # Export Options
@@ -195,7 +424,6 @@ with colA:
         mime="text/csv",
         use_container_width=True
     )
-# ---------- Excel ----------
 # ---------- Excel ----------
 with colB:
     st.markdown("### 📗 Excel Export")
