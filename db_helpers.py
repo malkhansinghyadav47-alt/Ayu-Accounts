@@ -1146,3 +1146,66 @@ def get_group_outstanding_accounts(group_id, financial_year_id, start_date, end_
 
     conn.close()
     return result
+
+def get_accounts_list(financial_year_id, mode="ALL"):
+    """
+    mode = "ALL"   => All accounts alphabetical
+    mode = "GROUP" => Group-wise alphabetical + account alphabetical
+    """
+
+    with get_connection() as conn:
+        cur = conn.cursor()
+
+        if mode == "ALL":
+            cur.execute("""
+                SELECT 
+                    a.id,
+                    a.name,
+                    g.group_name,
+                    COALESCE(ob.amount, 0) AS opening_amount
+                FROM accounts a
+                LEFT JOIN groups g ON a.group_id = g.id
+                LEFT JOIN opening_balances ob 
+                    ON ob.account_id = a.id AND ob.financial_year_id = ?
+                ORDER BY a.name
+            """, (financial_year_id,))
+
+        else:  # mode == "GROUP"
+            cur.execute("""
+                SELECT 
+                    a.id,
+                    a.name,
+                    g.group_name,
+                    COALESCE(ob.amount, 0) AS opening_amount
+                FROM accounts a
+                LEFT JOIN groups g ON a.group_id = g.id
+                LEFT JOIN opening_balances ob 
+                    ON ob.account_id = a.id AND ob.financial_year_id = ?
+                ORDER BY g.group_name, a.name
+            """, (financial_year_id,))
+
+        return cur.fetchall()
+
+def get_group_summary_opening(financial_year_id):
+    """
+    Returns group-wise opening balance summary.
+    Shows total opening amount per group.
+    """
+
+    with get_connection() as conn:
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                g.group_name,
+                SUM(COALESCE(ob.amount, 0)) AS total_opening
+            FROM accounts a
+            LEFT JOIN groups g ON a.group_id = g.id
+            LEFT JOIN opening_balances ob
+                ON ob.account_id = a.id AND ob.financial_year_id = ?
+            GROUP BY g.group_name
+            ORDER BY g.group_name
+        """, (financial_year_id,))
+
+        return cur.fetchall()
+
