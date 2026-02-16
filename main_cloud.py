@@ -56,7 +56,8 @@ with st.sidebar:
         "💵 Cash Flow Report",
         "📒 Day Book Report",
         "📌 Outstanding Report",
-        "📌 Group-wise Outstanding"
+        "📌 Group-wise Outstanding",
+        "📋 Accounts List"
     ]
 
     module = None
@@ -229,6 +230,14 @@ def main_cloud():
         else:
             st.error("❌ File not found: reports/day_book_report.py")
 
+    elif module == "📋 Accounts List":
+        file_path = "reports/accounts_list_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/day_book_report.py")
 
 if __name__ == "__main__":
     main_cloud()
