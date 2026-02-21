@@ -49,6 +49,7 @@ with st.sidebar:
     # ---------------- REPORT MODULES ----------------
     report_menu_options = [
         "📑 Ledger Report",
+        "📊 Account Balances",
         "📊 Trial Balance",
         "📈 Profit & Loss",
         "🏦 Balance Sheet Progress Bar",
@@ -107,8 +108,6 @@ def main_cloud():
         else:
             st.error("❌ File not found: 01_dashboard.py")
 
-        
-
     elif module == "📅 Financial Year":
         file_path = "working_pages/01_fnancial_year.py"
 
@@ -126,8 +125,7 @@ def main_cloud():
                 exec(f.read())
         else:
             st.error("❌ File not found: 02_groups.py")
-
-            
+        
     elif module == "👤 Accounts":      
         file_path = "working_pages/03_accounts.py"
 
@@ -163,6 +161,16 @@ def main_cloud():
                 exec(f.read())
         else:
             st.error("❌ File not found: reports/ledger_report.py")
+
+    elif module == "📊 Account Balances":
+        file_path = "reports/account_balances_report.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: reports/account_balances_report.py")
+
 
     elif module == "📊 Trial Balance":
         file_path = "reports/trial_balance_report.py"
