@@ -151,32 +151,86 @@ if not df_all.empty:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-if not active_balance.empty:
+# -----------------------------
+# Print / Download Report
+# -----------------------------
+st.divider()
+st.subheader("🖨 Print or Download Report")
 
-    pdf_buffer = BytesIO()
-    doc = SimpleDocTemplate(pdf_buffer, pagesize=pagesizes.A4)
-    elements = []
+if not df_all.empty:
 
-    styles = getSampleStyleSheet()
-    elements.append(Paragraph("Accounts Balance Report", styles["Heading1"]))
-    elements.append(Spacer(1, 0.3 * inch))
+    company_name = "Ayuquant Software Pvt Ltd"
+    fy_label = f"{fy_start} to {fy_end}"
 
-    data = [active_balance.reset_index().columns.tolist()] + \
-           active_balance.reset_index().values.tolist()
-
-    table = Table(data)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
-    ]))
-
-    elements.append(table)
-    doc.build(elements)
-
-    st.download_button(
-        label="📄 Download PDF",
-        data=pdf_buffer.getvalue(),
-        file_name="accounts_balance_report.pdf",
-        mime="application/pdf"
+    # Optional styling (red negative values)
+    styled_df = active_balance.copy()
+    styled_df["Net Balance"] = styled_df["Net Balance"].apply(
+        lambda x: f"<span style='color:red'>{x:,.2f}</span>" if x < 0 else f"{x:,.2f}"
     )
+
+    html_table = styled_df.reset_index().to_html(index=False, escape=False)
+
+    full_html = f"""
+    <html>
+    <head>
+        <title>Account Balance Report</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                padding: 40px;
+            }}
+            h2 {{
+                text-align: center;
+                margin-bottom: 5px;
+            }}
+            h4 {{
+                text-align: center;
+                margin-top: 0px;
+                color: gray;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 25px;
+            }}
+            th, td {{
+                border: 1px solid #000;
+                padding: 8px;
+                text-align: right;
+            }}
+            th {{
+                background-color: #f2f2f2;
+            }}
+            td:first-child, th:first-child {{
+                text-align: left;
+            }}
+        </style>
+    </head>
+    <body>
+        <h2>{company_name}</h2>
+        <h4>Account Balance Report</h4>
+        <h4>Financial Year: {fy_label}</h4>
+        {html_table}
+    </body>
+    </html>
+    """
+
+    col1, col2 = st.columns(2)
+
+    # 🖨 Print Button
+    with col1:
+        if st.button("🖨 Print"):
+            st.components.v1.html(
+                full_html + "<script>window.print();</script>",
+                height=800,
+                scrolling=True
+            )
+
+    # 📥 Download HTML Button
+    with col2:
+        st.download_button(
+            label="📥 Download HTML",
+            data=full_html,
+            file_name="account_balance_report.html",
+            mime="text/html"
+        )
