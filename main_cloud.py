@@ -98,10 +98,16 @@ def main_cloud():
     # Main Screen Routing
     # -------------------------------------------------
 
-    if module == "🏠 Dashboard":
-        st.title("📘 Business Ledger System")
-        st.subheader("🏠 Dashboard")
-        st.info("Here we will show summary, balances, charts later.")
+    if module == "🏠 Dashboard":       
+        file_path = "working_pages/00_dashboard.py"
+
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                exec(f.read())
+        else:
+            st.error("❌ File not found: 01_dashboard.py")
+
+        
 
     elif module == "📅 Financial Year":
         file_path = "working_pages/01_fnancial_year.py"

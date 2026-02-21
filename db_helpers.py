@@ -1209,3 +1209,163 @@ def get_group_summary_opening(financial_year_id):
 
         return cur.fetchall()
 
+
+# ------------------ TOTAL INCOME ------------------
+
+def get_total_income():
+    conn = get_connection()
+    fy = get_active_financial_year()
+
+    if not fy:
+        return 0
+
+    fy_id = fy["id"]
+
+    query = """
+    SELECT SUM(t.amount)
+    FROM transactions t
+    JOIN accounts a ON t.to_acc_id = a.id
+    JOIN groups g ON a.group_id = g.id
+    WHERE g.group_name LIKE '%Income%'
+    AND t.financial_year_id = ?
+    """
+
+    result = conn.execute(query, (fy_id,)).fetchone()
+    conn.close()
+    return result[0] if result and result[0] else 0 
+
+# ------------------ TOTAL EXPENSE ------------------
+
+def get_total_expense():
+    conn = get_connection()
+    fy = get_active_financial_year()
+    if not fy:
+        return 0
+
+    fy_id = fy["id"]
+    
+    query = """
+    SELECT SUM(t.amount)
+    FROM transactions t
+    JOIN accounts a ON t.from_acc_id = a.id
+    JOIN groups g ON a.group_id = g.id
+    WHERE g.group_name LIKE '%Expense%'
+    AND t.financial_year_id = ?
+    """
+
+    row = conn.execute(query, (fy_id,)).fetchone()
+    conn.close()
+    return row[0] if row and row[0] else 0
+
+
+# ------------------ CASH BALANCE ------------------
+
+def get_cash_balance():
+    conn = get_connection()
+    fy = get_active_financial_year()
+    if not fy:
+        return 0
+
+    fy_id = fy["id"]
+    
+    query = """
+    SELECT 
+        SUM(CASE WHEN a.name = 'Cash' THEN t.amount ELSE 0 END) -
+        SUM(CASE WHEN b.name = 'Cash' THEN -t.amount ELSE 0 END)
+    FROM transactions t
+    JOIN accounts a ON t.to_acc_id = a.id
+    JOIN accounts b ON t.from_acc_id = b.id
+    WHERE t.financial_year_id = ?
+    """
+
+    result = conn.execute(query, (fy_id,)).fetchone()[0]
+    conn.close()
+    return result or 0
+
+
+# ------------------ RECEIVABLE ------------------
+
+def get_receivable():
+    conn = get_connection()
+    fy = get_active_financial_year()
+    if not fy:
+        return 0
+
+    fy_id = fy["id"]
+    
+    query = """
+    SELECT SUM(t.amount)
+    FROM transactions t
+    JOIN accounts a ON t.to_acc_id = a.id
+    JOIN groups g ON a.group_id = g.id
+    WHERE g.group_name LIKE '%Debtor%'
+    AND t.financial_year_id = ?
+    """
+
+    result = conn.execute(query, (fy_id,)).fetchone()[0]
+    conn.close()
+    return result or 0
+
+
+# ------------------ PAYABLE ------------------
+
+def get_payable():
+    conn = get_connection()
+    fy = get_active_financial_year()
+    if not fy:
+        return 0
+
+    fy_id = fy["id"]
+    
+    query = """
+    SELECT SUM(t.amount)
+    FROM transactions t
+    JOIN accounts a ON t.from_acc_id = a.id
+    JOIN groups g ON a.group_id = g.id
+    WHERE g.group_name LIKE '%Creditor%'
+    AND t.financial_year_id = ?
+    """
+
+    result = conn.execute(query, (fy_id,)).fetchone()[0]
+    conn.close()
+    return result or 0
+
+
+# ------------------ MONTHLY DATA ------------------
+
+def get_monthly_income_expense():
+    conn = get_connection()
+    fy = get_active_financial_year()
+    if not fy:
+        return pd.DataFrame()
+
+    fy_id = fy["id"]
+
+    query = """
+    SELECT 
+        strftime('%m', t.txn_date) as month,
+
+        SUM(CASE 
+            WHEN g1.group_name LIKE '%Income%' 
+            THEN t.amount ELSE 0 END) as income,
+
+        SUM(CASE 
+            WHEN g2.group_name LIKE '%Expense%' 
+            THEN t.amount ELSE 0 END) as expense
+
+    FROM transactions t
+
+    LEFT JOIN accounts a1 ON t.to_acc_id = a1.id
+    LEFT JOIN groups g1 ON a1.group_id = g1.id
+
+    LEFT JOIN accounts a2 ON t.from_acc_id = a2.id
+    LEFT JOIN groups g2 ON a2.group_id = g2.id
+
+    WHERE t.financial_year_id = ?
+    GROUP BY month
+    ORDER BY month
+    """
+
+    df = pd.read_sql(query, conn, params=(fy_id,))
+    conn.close()
+    return df
