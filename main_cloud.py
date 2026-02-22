@@ -18,10 +18,16 @@ st.set_page_config(page_title="Business Ledger", layout="wide")
 def login_screen():
     st.title("Ayuquant Accounts Login")
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    # ✅ Capture values into variables
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
 
-    if st.button("Login"):
+    if st.button("Login", key="login_button"):
+
+        if not username or not password:
+            st.warning("Please enter username and password")
+            return
+
         conn = get_connection()
         user = conn.execute("""
             SELECT u.*, r.role_name
@@ -31,6 +37,7 @@ def login_screen():
         """, (username,)).fetchone()
 
         if user and verify_password(password, user["password_hash"]):
+
             st.session_state.user_id = user["id"]
             st.session_state.username = user["username"]
             st.session_state.role_id = user["role_id"]
@@ -38,9 +45,9 @@ def login_screen():
 
             st.success("Login successful")
             st.rerun()
+
         else:
             st.error("Invalid credentials")
-
 
 # -------------------------------------------------
 # SIDEBAR (ONLY AFTER LOGIN)
@@ -96,7 +103,7 @@ def load_sidebar():
 
         # Show User Management only to Admin
         if st.session_state.role_name == "Admin":
-            input_menu_options.insert(0, "User Management")
+            input_menu_options.insert(0, "Users Management")
 
         # Report Modules
         report_menu_options = [
