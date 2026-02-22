@@ -142,7 +142,7 @@ def load_module(module):
 
     routing = {
 
-        "Users Management": "working_pages/06_user_management.py",
+        "Users Management": "working_pages/06_users_management.py",
         "🏠 Dashboard": "working_pages/00_dashboard.py",
         "📅 Financial Year": "working_pages/01_fnancial_year.py",
         "🏷 Account Groups": "working_pages/02_groups.py",
@@ -192,3 +192,4 @@ def main_cloud():
 if __name__ == "__main__":
 
     main_cloud()
+
