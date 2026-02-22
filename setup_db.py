@@ -1,10 +1,15 @@
 import sqlite3
+import hashlib
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 def init_db():
+    
     with sqlite3.connect("business_ledger.db") as conn:
         cursor = conn.cursor()
         cursor.execute("PRAGMA foreign_keys = ON")
-
+        
         # 1. Account Groups
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS groups (
@@ -47,11 +52,12 @@ def init_db():
 
         # 3. Users
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 full_name TEXT,
                 role_id INTEGER NOT NULL,
+                password_hash TEXT, -- For future authentication implementation
                 is_active INTEGER DEFAULT 1,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
@@ -86,6 +92,7 @@ def init_db():
                 UNIQUE (account_id, financial_year_id)
             )
         """)
+        
         # 5. Voucher Types
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS voucher_types (
@@ -145,11 +152,25 @@ def init_db():
                 VALUES (?, ?, ?, ?)
             """, (label, f"{y}-04-01", f"{y+1}-03-31", active_status))
 
-        # 10. Seed Default User (ADMIN)
-        cursor.execute("""
-            INSERT OR IGNORE INTO users (id, username, full_name, role_id)
-            VALUES (1, 'admin', 'System Administrator', 1)
-        """)
+        # 10. Seed Default Admin User (Only if not exists)
+        cursor.execute("SELECT COUNT(*) FROM users")
+        user_count = cursor.fetchone()[0]
+
+        if user_count == 0:
+            admin_password = hash_password("admin123")
+
+            cursor.execute("""
+                INSERT INTO users (username, full_name, role_id, password_hash, is_active)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                "admin",
+                "System Administrator",
+                1,  # ADMIN role
+                admin_password,
+                1   # Active
+            ))
+
+            print("✅ Default Admin User Created (username: admin, password: admin123)")
 
         # 9. Seed Data: Default Accounts
         default_accounts = [

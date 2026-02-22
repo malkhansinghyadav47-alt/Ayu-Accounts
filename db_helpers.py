@@ -1,5 +1,6 @@
 import re
 import sqlite3
+import hashlib
 import pandas as pd
 from datetime import date
 from datetime import datetime
@@ -11,6 +12,16 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+# -------------------------------
+# User Authentication Helpers  
+# ------------------------------- 
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(password, stored_hash):
+    return hash_password(password) == stored_hash
 
 # -------------------------------
 # Financial Year Helpers
