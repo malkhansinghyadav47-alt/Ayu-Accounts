@@ -4,4 +4,6 @@ plotly
 openpyxl
 reportlab
 bcrypt
+matplotlib
+
 
