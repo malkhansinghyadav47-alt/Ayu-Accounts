@@ -124,101 +124,103 @@ st.divider()
 # -----------------------------
 # 4. Transaction History
 # -----------------------------
-st.subheader("📋 Transaction History")
+with st.expander("📋 View/Edit Transactions", expanded=False):
+    st.subheader("📋 Transaction History")
 
-if not df_all.empty:
-    df_all["Edit_Amt"] = df_all["amount"]
+    if not df_all.empty:
+        df_all["Edit_Amt"] = df_all["amount"]
 
-    search_q = st.text_input("🔍 Search history...").lower()
-    df_view = df_all.copy()
+        search_q = st.text_input("🔍 Search history...").lower()
+        df_view = df_all.copy()
 
-    if search_q:
-        mask = (
-            df_view["from_account"].str.lower().str.contains(search_q) |
-            df_view["to_account"].str.lower().str.contains(search_q) |
-            df_view["note"].fillna("").str.lower().str.contains(search_q)
+        if search_q:
+            mask = (
+                df_view["from_account"].str.lower().str.contains(search_q) |
+                df_view["to_account"].str.lower().str.contains(search_q) |
+                df_view["note"].fillna("").str.lower().str.contains(search_q)
+            )
+            df_view = df_view[mask]
+
+        editor_key = f"txn_editor_{st.session_state.editor_version}"
+
+        edited_df = st.data_editor(
+            df_view,
+            column_order=("txn_date", "from_account", "to_account", "Edit_Amt", "note"),
+            column_config={
+                "txn_date": st.column_config.TextColumn("Date", disabled=True),
+                "from_account": st.column_config.SelectboxColumn("From", options=acc_names),
+                "to_account": st.column_config.SelectboxColumn("To", options=acc_names),
+                "Edit_Amt": st.column_config.NumberColumn("Amount (₹)", format="%.2f"),
+                "note": st.column_config.TextColumn("Note", width="large"),
+            },
+            disabled=["txn_date"],
+            use_container_width=True,
+            key=editor_key
         )
-        df_view = df_view[mask]
 
-    editor_key = f"txn_editor_{st.session_state.editor_version}"
+        state = st.session_state[editor_key]
 
-    edited_df = st.data_editor(
-        df_view,
-        column_order=("txn_date", "from_account", "to_account", "Edit_Amt", "note"),
-        column_config={
-            "txn_date": st.column_config.TextColumn("Date", disabled=True),
-            "from_account": st.column_config.SelectboxColumn("From", options=acc_names),
-            "to_account": st.column_config.SelectboxColumn("To", options=acc_names),
-            "Edit_Amt": st.column_config.NumberColumn("Amount (₹)", format="%.2f"),
-            "note": st.column_config.TextColumn("Note", width="large"),
-        },
-        disabled=["txn_date"],
-        use_container_width=True,
-        key=editor_key
-    )
+        if state.get("deleted_rows") or state.get("edited_rows"):
+            st.warning("⚠️ Unsaved changes")
 
-    state = st.session_state[editor_key]
+            c1, c2, _ = st.columns([1, 1, 4])
 
-    if state.get("deleted_rows") or state.get("edited_rows"):
-        st.warning("⚠️ Unsaved changes")
+            if c1.button("✅ Confirm Save", type="primary"):
+                try:
+                    for idx in state.get("deleted_rows", []):
+                        delete_transaction(int(df_view.iloc[idx]["id"]))
 
-        c1, c2, _ = st.columns([1, 1, 4])
+                    for idx_str, changes in state.get("edited_rows", {}).items():
+                        row_idx = int(idx_str)
+                        row = df_view.iloc[row_idx]
 
-        if c1.button("✅ Confirm Save", type="primary"):
-            try:
-                for idx in state.get("deleted_rows", []):
-                    delete_transaction(int(df_view.iloc[idx]["id"]))
+                        update_transaction(
+                            int(row["id"]),
+                            changes.get("Edit_Amt", row["amount"]),
+                            changes.get("note", row["note"]),
+                            acc_map[changes.get("from_account", row["from_account"])],
+                            acc_map[changes.get("to_account", row["to_account"])]
+                        )
 
-                for idx_str, changes in state.get("edited_rows", {}).items():
-                    row_idx = int(idx_str)
-                    row = df_view.iloc[row_idx]
+                    st.success("✅ Changes saved")
+                    st.rerun()
 
-                    update_transaction(
-                        int(row["id"]),
-                        changes.get("Edit_Amt", row["amount"]),
-                        changes.get("note", row["note"]),
-                        acc_map[changes.get("from_account", row["from_account"])],
-                        acc_map[changes.get("to_account", row["to_account"])]
-                    )
+                except Exception as e:
+                    st.error(f"❌ Error: {e}")
 
-                st.success("✅ Changes saved")
+            if c2.button("❌ Undo"):
+                st.session_state.editor_version += 1
                 st.rerun()
-
-            except Exception as e:
-                st.error(f"❌ Error: {e}")
-
-        if c2.button("❌ Undo"):
-            st.session_state.editor_version += 1
-            st.rerun()
 
 # -----------------------------
 # 5. Account Balances
 # -----------------------------
 st.divider()
-st.subheader("📊 Account Balances")
+with st.expander("📊 View/Edit Account Balances", expanded=False):
+    st.subheader("📊 Account Balances")
 
-if not df_all.empty:
-    credits = df_all.groupby('from_account')['amount'].sum().rename('Total_Out')
-    debits = df_all.groupby('to_account')['amount'].sum().rename('Total_In')
+    if not df_all.empty:
+        credits = df_all.groupby('from_account')['amount'].sum().rename('Total_Out')
+        debits = df_all.groupby('to_account')['amount'].sum().rename('Total_In')
 
-    balance_df = (
-        pd.DataFrame(index=acc_names)
-        .join(debits)
-        .join(credits)
-        .fillna(0)
-    )
-
-    balance_df['Net Balance'] = balance_df['Total_In'] - balance_df['Total_Out']
-
-    active_balance = balance_df[
-        (balance_df['Total_In'] > 0) | (balance_df['Total_Out'] > 0)
-    ]
-
-    st.table(
-        active_balance.style
-        .format("₹ {:,.2f}")
-        .applymap(
-            lambda x: "color:#ff4b4b;font-weight:bold" if x < 0 else "color:#00c853;font-weight:bold",
-            subset=['Net Balance']
+        balance_df = (
+            pd.DataFrame(index=acc_names)
+            .join(debits)
+            .join(credits)
+            .fillna(0)
         )
-    )
+
+        balance_df['Net Balance'] = balance_df['Total_In'] - balance_df['Total_Out']
+
+        active_balance = balance_df[
+            (balance_df['Total_In'] > 0) | (balance_df['Total_Out'] > 0)
+        ]
+
+        st.table(
+            active_balance.style
+            .format("₹ {:,.2f}")
+            .applymap(
+                lambda x: "color:#ff4b4b;font-weight:bold" if x < 0 else "color:#00c853;font-weight:bold",
+                subset=['Net Balance']
+            )
+        )
