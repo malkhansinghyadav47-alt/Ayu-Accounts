@@ -11,7 +11,6 @@ from db_helpers import (
 # -------------------------------------------------
 st.set_page_config(page_title="Business Ledger", layout="wide")
 
-
 # -------------------------------------------------
 # LOGIN SCREEN
 # -------------------------------------------------
@@ -58,7 +57,7 @@ def load_sidebar():
 
         st.write(f"👤 Logged in as: {st.session_state.username}")
 
-        if st.button("Logout"):
+        if st.button("Logout", key="logout_button"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
@@ -73,59 +72,81 @@ def load_sidebar():
 
         st.markdown("---")
 
-        # Default session values
-        if "module_selection" not in st.session_state:
-            st.session_state.module_selection = "💳 Transactions"
-
-        if "report_selection" not in st.session_state:
-            st.session_state.report_selection = "📑 Ledger Report"
-
-        if "sidebar_section" not in st.session_state:
-            st.session_state.sidebar_section = "📂 Input Modules"
-
+        # -------------------------
         # Section Selector
+        # -------------------------
+        sections = ["📂 Input Modules", "📊 Report Modules"]
+
+        if st.session_state.role_name == "Admin":
+            sections.append("⚙️ Admin Modules")
+
         section = st.radio(
             "📌 Select Section",
-            ["📂 Input Modules", "📂 Report Modules"],
+            sections,
+            key="sidebar_section"
         )
 
         st.markdown("---")
 
-        # Input Modules
-        input_menu_options = [
-            "🏠 Dashboard",
-            "📅 Financial Year",
-            "🏷 Account Groups",
-            "👤 Accounts",
-            "💰 Opening Balance",
-            "💳 Transactions"
-        ]
-
-        # Show User Management only to Admin
-        if st.session_state.role_name == "Admin":
-            input_menu_options.insert(0, "Users Management")
-
-        # Report Modules
-        report_menu_options = [
-            "📑 Ledger Report",
-            "📊 Account Balances",
-            "📊 Trial Balance",
-            "📈 Profit & Loss",
-            "🏦 Balance Sheet Progress Bar",
-            "🏦 Balance Sheet No Loop",
-            "💵 Cash Flow Report",
-            "📒 Day Book Report",
-            "📌 Outstanding Report",
-            "📌 Group-wise Outstanding",
-            "📋 Accounts List"
-        ]
-
-        module = None
-
+        # -------------------------
+        # INPUT MODULES
+        # -------------------------
         if section == "📂 Input Modules":
-            module = st.radio("Select Module", input_menu_options)
-        else:
-            module = st.radio("Select Report", report_menu_options)
+
+            input_menu_options = [
+                "🏠 Dashboard",
+                "📅 Financial Year",
+                "🏷 Account Groups",
+                "👤 Accounts",
+                "💰 Opening Balance",
+                "💳 Transactions"
+            ]
+
+            module = st.radio(
+                "Select Module",
+                input_menu_options,
+                key="input_module_radio"
+            )
+
+        # -------------------------
+        # REPORT MODULES
+        # -------------------------
+        elif section == "📊 Report Modules":
+
+            report_menu_options = [
+                "📑 Ledger",
+                "📊 Trial Balance",
+                "📊 Account Balances",
+                "📈 Profit & Loss",
+                "🏦 Balance Sheet",
+                "💵 Cash Flow",
+                "📒 Day Book",
+                "📌 Party Outstandings",
+                "📌 Group Outstandings",
+                "📋 Accounts List"
+            ]
+
+            module = st.radio(
+                "Select Report",
+                report_menu_options,
+                key="report_module_radio"
+            )
+
+        # -------------------------
+        # ADMIN MODULES
+        # -------------------------
+        elif section == "⚙️ Admin Modules":
+
+            admin_menu_options = [
+                "🔐 Users Management",
+                "💾 Backup Management"
+            ]
+
+            module = st.radio(
+                "Select Admin Module",
+                admin_menu_options,
+                key="admin_module_radio"
+            )
 
         st.markdown("---")
         st.caption("⚡ Developed by:")
@@ -134,7 +155,6 @@ def load_sidebar():
 
         return module
 
-
 # -------------------------------------------------
 # MAIN ROUTING
 # -------------------------------------------------
@@ -142,7 +162,9 @@ def load_module(module):
 
     routing = {
 
-        "Users Management": "working_pages/06_users_management.py",
+        "🔐 Users Management": "working_pages/06_users_management.py",
+        "💾 Backup Management": "working_pages/07_backup_management.py",
+        
         "🏠 Dashboard": "working_pages/00_dashboard.py",
         "📅 Financial Year": "working_pages/01_fnancial_year.py",
         "🏷 Account Groups": "working_pages/02_groups.py",
@@ -150,16 +172,15 @@ def load_module(module):
         "💰 Opening Balance": "working_pages/04_opening_balance.py",
         "💳 Transactions": "working_pages/05_transactions.py",
 
-        "📑 Ledger Report": "reports/ledger_report.py",
-        "📊 Account Balances": "reports/account_balances_report.py",
+        "📑 Ledger": "reports/ledger_report.py",
         "📊 Trial Balance": "reports/trial_balance_report.py",
+        "📊 Account Balances": "reports/account_balances_report.py",
         "📈 Profit & Loss": "reports/profit_loss_report.py",
-        "🏦 Balance Sheet Progress Bar": "reports/balance_sheet_report.py",
-        "🏦 Balance Sheet No Loop": "reports/balance_sheet_report2.py",
-        "💵 Cash Flow Report": "reports/cash_flow_report.py",
-        "📒 Day Book Report": "reports/day_book_report.py",
-        "📌 Outstanding Report": "reports/outstanding_report.py",
-        "📌 Group-wise Outstanding": "reports/groupwise_outstanding_report.py",
+        "🏦 Balance Sheet": "reports/balance_sheet_report2.py",
+        "💵 Cash Flow": "reports/cash_flow_report.py",
+        "📒 Day Book": "reports/day_book_report.py",
+        "📌 Party Outstandings": "reports/outstanding_report.py",
+        "📌 Group Outstandings": "reports/groupwise_outstanding_report.py",
         "📋 Accounts List": "reports/accounts_list_report.py",
     }
 
@@ -170,7 +191,6 @@ def load_module(module):
             exec(f.read())
     else:
         st.error(f"❌ File not found: {file_path}")
-
 
 # -------------------------------------------------
 # MAIN APP
@@ -185,11 +205,8 @@ def main_cloud():
     module = load_sidebar()
     load_module(module)
 
-
 # -------------------------------------------------
 # RUN APP
 # -------------------------------------------------
 if __name__ == "__main__":
-
     main_cloud()
-
