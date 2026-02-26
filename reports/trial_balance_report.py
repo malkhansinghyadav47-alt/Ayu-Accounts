@@ -14,7 +14,7 @@ from db_helpers import (
 
 st.set_page_config(page_title="Trial Balance Report", layout="wide")
 
-st.title("📊 Trial Balance Report")
+st.title("📊 Trial Balance")
 
 # -----------------------------
 # 1. Active Financial Year
@@ -116,133 +116,134 @@ else:
 st.divider()
 st.subheader("📥 Export Options")
 
-colA, colB, colC = st.columns(3)
+with st.expander("Printing & Sharing Options"):
+    colA, colB, colC = st.columns(3)
 
-# CSV Download
-csv_data = df.to_csv(index=False).encode("utf-8")
-colA.download_button(
-    "⬇️ Download CSV",
-    data=csv_data,
-    file_name=f"trial_balance_{active_year['label']}.csv",
-    mime="text/csv",
-    use_container_width=True
-)
+    # CSV Download
+    csv_data = df.to_csv(index=False).encode("utf-8")
+    colA.download_button(
+        "⬇️ Download CSV",
+        data=csv_data,
+        file_name=f"trial_balance_{active_year['label']}.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
 
-with colB:
-    st.divider()
-st.subheader("📲 Share on WhatsApp")
+    with colB:
+        st.divider()
+    st.subheader("📲 Share on WhatsApp")
 
-wa_message = f"""
-📊 Trial Balance Report
-Financial Year: {active_year['label']}
+    wa_message = f"""
+    📊 Trial Balance Report
+    Financial Year: {active_year['label']}
 
-Total Debit (Dr): ₹ {total_debit:,.2f}
-Total Credit (Cr): ₹ {total_credit:,.2f}
-Difference: ₹ {diff:,.2f}
+    Total Debit (Dr): ₹ {total_debit:,.2f}
+    Total Credit (Cr): ₹ {total_credit:,.2f}
+    Difference: ₹ {diff:,.2f}
 
-Generated from Business Ledger System
-"""
+    Generated from Business Ledger System
+    """
 
-wa_text = urllib.parse.quote(wa_message)
+    wa_text = urllib.parse.quote(wa_message)
 
-wa_link = f"https://wa.me/?text={wa_text}"
+    wa_link = f"https://wa.me/?text={wa_text}"
 
-st.markdown(
-    f"""
-    <a href="{wa_link}" target="_blank">
-        <button style="
-            width:100%;
-            padding:12px;
-            font-size:16px;
-            font-weight:bold;
-            border:none;
-            border-radius:8px;
-            background:#25D366;
-            color:white;
-            cursor:pointer;
-        ">
-        📲 Share Trial Balance on WhatsApp
-        </button>
-    </a>
-    """,
-    unsafe_allow_html=True
-)  
+    st.markdown(
+        f"""
+        <a href="{wa_link}" target="_blank">
+            <button style="
+                width:100%;
+                padding:12px;
+                font-size:16px;
+                font-weight:bold;
+                border:none;
+                border-radius:8px;
+                background:#25D366;
+                color:white;
+                cursor:pointer;
+            ">
+            📲 Share Trial Balance on WhatsApp
+            </button>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )  
 
-# -----------------------------
-# 7. Print Option (A4 HTML)
-# -----------------------------
-with colC:
-    st.markdown("### 🖨 Print Trial Balance")
+    # -----------------------------
+    # 7. Print Option (A4 HTML)
+    # -----------------------------
+    with colC:
+        st.markdown("### 🖨 Print Trial Balance")
 
-    if not df.empty:
+        if not df.empty:
 
-        print_html = f"""
-        <html>
-        <head>
-            <title>Trial Balance Report</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    padding: 20px;
-                }}
-                h2 {{
-                    text-align: center;
-                }}
-                .summary {{
-                    margin-bottom: 15px;
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    border-radius: 6px;
-                }}
-                table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 10px;
-                    font-size: 14px;
-                }}
-                th, td {{
-                    border: 1px solid #ccc;
-                    padding: 8px;
-                    text-align: left;
-                }}
-                th {{
-                    background: #f2f2f2;
-                }}
-                @media print {{
+            print_html = f"""
+            <html>
+            <head>
+                <title>Trial Balance Report</title>
+                <style>
                     body {{
-                        padding: 0;
+                        font-family: Arial, sans-serif;
+                        padding: 20px;
+                    }}
+                    h2 {{
+                        text-align: center;
                     }}
                     .summary {{
-                        border: none;
+                        margin-bottom: 15px;
+                        padding: 10px;
+                        border: 1px solid #ccc;
+                        border-radius: 6px;
                     }}
-                }}
-            </style>
-        </head>
-        <body>
-            <h2>Trial Balance Report</h2>
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                        font-size: 14px;
+                    }}
+                    th, td {{
+                        border: 1px solid #ccc;
+                        padding: 8px;
+                        text-align: left;
+                    }}
+                    th {{
+                        background: #f2f2f2;
+                    }}
+                    @media print {{
+                        body {{
+                            padding: 0;
+                        }}
+                        .summary {{
+                            border: none;
+                        }}
+                    }}
+                </style>
+            </head>
+            <body>
+                <h2>Trial Balance Report</h2>
 
-            <div class="summary">
-                <b>Financial Year:</b> {active_year['label']}<br><br>
+                <div class="summary">
+                    <b>Financial Year:</b> {active_year['label']}<br><br>
 
-                <b>Total Debit (Dr):</b> ₹ {total_debit:,.2f}<br>
-                <b>Total Credit (Cr):</b> ₹ {total_credit:,.2f}<br>
-                <b>Difference:</b> ₹ {diff:,.2f}<br>
-            </div>
+                    <b>Total Debit (Dr):</b> ₹ {total_debit:,.2f}<br>
+                    <b>Total Credit (Cr):</b> ₹ {total_credit:,.2f}<br>
+                    <b>Difference:</b> ₹ {diff:,.2f}<br>
+                </div>
 
-            {df.to_html(index=False)}
-        </body>
-        </html>
-        """
+                {df.to_html(index=False)}
+            </body>
+            </html>
+            """
 
-        st.download_button(
-            "🖨 Download Print Trial Balance (HTML)",
-            data=print_html.encode("utf-8"),
-            file_name=f"Trial_Balance_{active_year['label']}.html",
-            mime="text/html",
-            use_container_width=True
-        )
+            st.download_button(
+                "🖨 Download Print Trial Balance (HTML)",
+                data=print_html.encode("utf-8"),
+                file_name=f"Trial_Balance_{active_year['label']}.html",
+                mime="text/html",
+                use_container_width=True
+            )
 
-        st.info("✅ Download HTML file → Open it in browser → Press CTRL+P to Print")
+            st.info("✅ Download HTML file → Open it in browser → Press CTRL+P to Print")
 
-    else:
-        st.button("🖨 Download Print Trial Balance (HTML)", use_container_width=True, disabled=True)
+        else:
+            st.button("🖨 Download Print Trial Balance (HTML)", use_container_width=True, disabled=True)

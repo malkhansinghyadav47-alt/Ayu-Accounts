@@ -156,157 +156,158 @@ else:
 st.divider()
 st.subheader("📥 Export Options")
 
-colA, colB, colC = st.columns(3)
+with st.expander("📁 Exporting & Printing", expanded=False):
+    colA, colB, colC = st.columns(3)
 
-# Combined Data for Export
-export_df = pd.DataFrame({
-    "Type": (["Income"] * len(df_income)) + (["Expense"] * len(df_expense)),
-    "Account Name": (
-        df_income["Income Account"].tolist() if not df_income.empty else []
-    ) + (
-        df_expense["Expense Account"].tolist() if not df_expense.empty else []
-    ),
-    "Amount": (
-        df_income["Amount"].tolist() if not df_income.empty else []
-    ) + (
-        df_expense["Amount"].tolist() if not df_expense.empty else []
-    )
-})
+    # Combined Data for Export
+    export_df = pd.DataFrame({
+        "Type": (["Income"] * len(df_income)) + (["Expense"] * len(df_expense)),
+        "Account Name": (
+            df_income["Income Account"].tolist() if not df_income.empty else []
+        ) + (
+            df_expense["Expense Account"].tolist() if not df_expense.empty else []
+        ),
+        "Amount": (
+            df_income["Amount"].tolist() if not df_income.empty else []
+        ) + (
+            df_expense["Amount"].tolist() if not df_expense.empty else []
+        )
+    })
 
-# CSV Download
-csv_data = export_df.to_csv(index=False).encode("utf-8")
+    # CSV Download
+    csv_data = export_df.to_csv(index=False).encode("utf-8")
 
-colA.download_button(
-    "⬇️ Download CSV",
-    data=csv_data,
-    file_name=f"profit_loss_{active_year['label']}.csv",
-    mime="text/csv",
-    use_container_width=True
-)
-
-# Excel Download (only if openpyxl installed)
-with colB:
-    st.markdown("### 📗 Excel Export")
-
-    if export_df.empty:
-        st.warning("⚠️ No data available to export.")
-    else:
-        try:
-            import pandas as pd
-            import openpyxl
-            from io import BytesIO
-
-            output = BytesIO()
-
-            with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                export_df.to_excel(writer, sheet_name="Profit & Loss", index=False)
-
-            output.seek(0)
-
-            st.download_button(
-                "⬇️ Download Excel",
-                data=output,
-                file_name=f"profit_loss_{active_year['label']}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-
-        except ImportError:
-            st.warning("⚠️ Excel export not available (openpyxl missing).")
-            st.info("Run: py -m pip install openpyxl")
-
-        except Exception as e:
-            st.error(f"❌ Excel export failed: {e}")
-
-# -----------------------------
-# 7. Print Option (HTML Download)
-# -----------------------------
-with colC:
-    st.markdown("### 🖨 Print Profit & Loss")
-
-    print_html = f"""
-    <html>
-    <head>
-        <title>Profit & Loss Report</title>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                padding: 20px;
-            }}
-            h2 {{
-                text-align: center;
-            }}
-            h4 {{
-                text-align: center;
-                color: gray;
-                margin-top: 0px;
-            }}
-            .summary {{
-                margin-bottom: 15px;
-                padding: 10px;
-                border: 1px solid #ccc;
-                border-radius: 6px;
-            }}
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 10px;
-                font-size: 14px;
-            }}
-            th, td {{
-                border: 1px solid #ccc;
-                padding: 8px;
-                text-align: left;
-            }}
-            th {{
-                background: #f2f2f2;
-            }}
-            .section-title {{
-                font-size: 18px;
-                font-weight: bold;
-                margin-top: 25px;
-            }}
-            @media print {{
-                body {{
-                    padding: 0;
-                }}
-                .summary {{
-                    border: none;
-                }}
-            }}
-        </style>
-    </head>
-    <body>
-
-        <h2>📈 Profit & Loss Report</h2>
-        <h4>Financial Year: {active_year['label']}</h4>
-
-        <div class="summary">
-            <b>From:</b> {start_date.strftime('%d-%m-%Y')} &nbsp;&nbsp;
-            <b>To:</b> {end_date.strftime('%d-%m-%Y')}<br><br>
-
-            <b>Total Income:</b> ₹ {total_income:,.2f}<br>
-            <b>Total Expense:</b> ₹ {total_expense:,.2f}<br><br>
-
-            <b>Net Result:</b> {"Net Profit" if net_profit >= 0 else "Net Loss"} : ₹ {abs(net_profit):,.2f}
-        </div>
-
-        <div class="section-title">💰 Income</div>
-        {df_income.to_html(index=False) if not df_income.empty else "<p>No income found.</p>"}
-
-        <div class="section-title">💸 Expenses</div>
-        {df_expense.to_html(index=False) if not df_expense.empty else "<p>No expenses found.</p>"}
-
-    </body>
-    </html>
-    """
-
-    st.download_button(
-        "🖨 Download Print P&L (HTML)",
-        data=print_html.encode("utf-8"),
-        file_name=f"ProfitLoss_{active_year['label']}_{start_date}_{end_date}.html",
-        mime="text/html",
+    colA.download_button(
+        "⬇️ Download CSV",
+        data=csv_data,
+        file_name=f"profit_loss_{active_year['label']}.csv",
+        mime="text/csv",
         use_container_width=True
     )
 
-    st.info("✅ Download HTML → Open in Browser → Press CTRL+P to Print")
+    # Excel Download (only if openpyxl installed)
+    with colB:
+        st.markdown("### 📗 Excel Export")
+
+        if export_df.empty:
+            st.warning("⚠️ No data available to export.")
+        else:
+            try:
+                import pandas as pd
+                import openpyxl
+                from io import BytesIO
+
+                output = BytesIO()
+
+                with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                    export_df.to_excel(writer, sheet_name="Profit & Loss", index=False)
+
+                output.seek(0)
+
+                st.download_button(
+                    "⬇️ Download Excel",
+                    data=output,
+                    file_name=f"profit_loss_{active_year['label']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+            except ImportError:
+                st.warning("⚠️ Excel export not available (openpyxl missing).")
+                st.info("Run: py -m pip install openpyxl")
+
+            except Exception as e:
+                st.error(f"❌ Excel export failed: {e}")
+
+    # -----------------------------
+    # 7. Print Option (HTML Download)
+    # -----------------------------
+    with colC:
+        st.markdown("### 🖨 Print Profit & Loss")
+
+        print_html = f"""
+        <html>
+        <head>
+            <title>Profit & Loss Report</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    padding: 20px;
+                }}
+                h2 {{
+                    text-align: center;
+                }}
+                h4 {{
+                    text-align: center;
+                    color: gray;
+                    margin-top: 0px;
+                }}
+                .summary {{
+                    margin-bottom: 15px;
+                    padding: 10px;
+                    border: 1px solid #ccc;
+                    border-radius: 6px;
+                }}
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                    font-size: 14px;
+                }}
+                th, td {{
+                    border: 1px solid #ccc;
+                    padding: 8px;
+                    text-align: left;
+                }}
+                th {{
+                    background: #f2f2f2;
+                }}
+                .section-title {{
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-top: 25px;
+                }}
+                @media print {{
+                    body {{
+                        padding: 0;
+                    }}
+                    .summary {{
+                        border: none;
+                    }}
+                }}
+            </style>
+        </head>
+        <body>
+
+            <h2>📈 Profit & Loss Report</h2>
+            <h4>Financial Year: {active_year['label']}</h4>
+
+            <div class="summary">
+                <b>From:</b> {start_date.strftime('%d-%m-%Y')} &nbsp;&nbsp;
+                <b>To:</b> {end_date.strftime('%d-%m-%Y')}<br><br>
+
+                <b>Total Income:</b> ₹ {total_income:,.2f}<br>
+                <b>Total Expense:</b> ₹ {total_expense:,.2f}<br><br>
+
+                <b>Net Result:</b> {"Net Profit" if net_profit >= 0 else "Net Loss"} : ₹ {abs(net_profit):,.2f}
+            </div>
+
+            <div class="section-title">💰 Income</div>
+            {df_income.to_html(index=False) if not df_income.empty else "<p>No income found.</p>"}
+
+            <div class="section-title">💸 Expenses</div>
+            {df_expense.to_html(index=False) if not df_expense.empty else "<p>No expenses found.</p>"}
+
+        </body>
+        </html>
+        """
+
+        st.download_button(
+            "🖨 Download Print P&L (HTML)",
+            data=print_html.encode("utf-8"),
+            file_name=f"ProfitLoss_{active_year['label']}_{start_date}_{end_date}.html",
+            mime="text/html",
+            use_container_width=True
+        )
+
+        st.info("✅ Download HTML → Open in Browser → Press CTRL+P to Print")
