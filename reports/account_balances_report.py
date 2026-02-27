@@ -130,7 +130,6 @@ if not df_all.empty:
 else:
     st.info("No transaction data available.")
     
-
 # -----------------------------
 # Export Options
 # -----------------------------
