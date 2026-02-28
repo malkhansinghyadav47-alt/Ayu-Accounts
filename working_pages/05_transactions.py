@@ -196,7 +196,7 @@ with st.expander("📋 View/Edit Transactions", expanded=False):
 # 5. Account Balances
 # -----------------------------
 st.divider()
-with st.expander("📊 View/Edit Account Balances", expanded=False):
+with st.expander("📊 View Account Balances", expanded=False):
     st.subheader("📊 Account Balances")
 
     if not df_all.empty:
