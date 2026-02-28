@@ -46,17 +46,19 @@ if df_groups.empty:
     st.stop()
 
 st.markdown("---")
-st.dataframe(df_groups, use_container_width=True)
 with st.expander("## 📌 Group Summary View", False):
-    # Totals
-    total_receivable = df_groups["Receivable (Dr)"].sum()
-    total_payable = df_groups["Payable (Cr)"].sum()
 
-    c1, c2, c3 = st.columns(3)
+    st.dataframe(df_groups, use_container_width=True)
 
-    c1.success(f"📥 Total Receivable\n\n₹ {total_receivable:,.2f}")
-    c2.error(f"📤 Total Payable\n\n₹ {total_payable:,.2f}")
-    c3.info(f"⚖ Net Outstanding\n\n₹ {(total_receivable - total_payable):,.2f}")
+# Totals
+total_receivable = df_groups["Receivable (Dr)"].sum()
+total_payable = df_groups["Payable (Cr)"].sum()
+
+c1, c2, c3 = st.columns(3)
+
+c1.success(f"📥 Total Receivable\n\n₹ {total_receivable:,.2f}")
+c2.error(f"📤 Total Payable\n\n₹ {total_payable:,.2f}")
+c3.info(f"⚖ Net Outstanding\n\n₹ {(total_receivable - total_payable):,.2f}")
 
 # ----------------------------------------
 # Drill Down Group Details
