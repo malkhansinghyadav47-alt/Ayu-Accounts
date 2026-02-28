@@ -46,10 +46,8 @@ if df_groups.empty:
     st.stop()
 
 st.markdown("---")
+st.dataframe(df_groups, use_container_width=True)
 with st.expander("## 📌 Group Summary View", False):
-
-    st.dataframe(df_groups, use_container_width=True)
-
     # Totals
     total_receivable = df_groups["Receivable (Dr)"].sum()
     total_payable = df_groups["Payable (Cr)"].sum()
